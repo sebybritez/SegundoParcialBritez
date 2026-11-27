@@ -1,0 +1,147 @@
+USE [master]
+GO
+
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'Parcial2')
+BEGIN
+    CREATE DATABASE [Parcial2];
+END
+GO
+
+USE [Parcial2]
+GO
+
+IF OBJECT_ID('dbo.SATELITE', 'U') IS NOT NULL DROP TABLE dbo.SATELITE;
+IF OBJECT_ID('dbo.CUERPO_CELESTE', 'U') IS NOT NULL DROP TABLE dbo.CUERPO_CELESTE;
+IF OBJECT_ID('dbo.TIPO', 'U') IS NOT NULL DROP TABLE dbo.TIPO;
+GO
+
+CREATE TABLE [dbo].[TIPO](
+    [ID_TIPO] [int] NOT NULL,
+    [TIPO] [nchar](10) NULL,
+    CONSTRAINT [PK_TIPO] PRIMARY KEY CLUSTERED ([ID_TIPO] ASC)
+) ON [PRIMARY]
+GO
+
+CREATE TABLE [dbo].[CUERPO_CELESTE](
+    [ID_CUERPO] [int] NOT NULL,
+    [NOMBRE] [varchar](50) NOT NULL,
+    [ID_TIPO] [int] NOT NULL,
+    CONSTRAINT [PK_CUERPO_CELESTE] PRIMARY KEY CLUSTERED ([ID_CUERPO] ASC),
+    CONSTRAINT [FK_CUERPO_CELESTE_TIPO] FOREIGN KEY ([ID_TIPO]) REFERENCES [dbo].[TIPO]([ID_TIPO])
+) ON [PRIMARY]
+GO
+
+CREATE TABLE [dbo].[SATELITE](
+    [ID_PLANETA] [int] NOT NULL,
+    [ID_SATELITE] [int] NOT NULL,
+    CONSTRAINT [PK_SATELITE] PRIMARY KEY CLUSTERED ([ID_PLANETA] ASC, [ID_SATELITE] ASC),
+    CONSTRAINT [FK_SATELITE_PLANETA] FOREIGN KEY ([ID_PLANETA]) REFERENCES [dbo].[CUERPO_CELESTE]([ID_CUERPO]),
+    CONSTRAINT [FK_SATELITE_SATELITE] FOREIGN KEY ([ID_SATELITE]) REFERENCES [dbo].[CUERPO_CELESTE]([ID_CUERPO])
+) ON [PRIMARY]
+GO
+
+-- =============================================
+-- DATOS INICIALES DE TIPO
+-- =============================================
+
+INSERT INTO dbo.TIPO (ID_TIPO, TIPO) VALUES
+(1, 'Estrella'),
+(2, 'Satelite'),
+(3, 'Planeta');
+GO
+
+-- =============================================
+-- PROCEDIMIENTOS ALMACENADOS (ABM Cuerpo Celeste)
+-- =============================================
+
+CREATE OR ALTER PROCEDURE [dbo].[Tipo_Listar]
+AS
+BEGIN
+    SELECT ID_TIPO, RTRIM(TIPO) AS TIPO
+    FROM dbo.TIPO
+    ORDER BY ID_TIPO;
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Cuerpo_Listar]
+AS
+BEGIN
+    SELECT c.ID_CUERPO, c.NOMBRE, c.ID_TIPO, RTRIM(t.TIPO) AS TIPO
+    FROM dbo.CUERPO_CELESTE c
+    INNER JOIN dbo.TIPO t ON c.ID_TIPO = t.ID_TIPO
+    ORDER BY c.ID_CUERPO;
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Cuerpo_Insertar]
+    @nombre varchar(50),
+    @id_tipo int
+AS
+BEGIN
+    DECLARE @id int;
+    SELECT @id = ISNULL(MAX(ID_CUERPO), 0) + 1 FROM dbo.CUERPO_CELESTE;
+
+    INSERT INTO dbo.CUERPO_CELESTE (ID_CUERPO, NOMBRE, ID_TIPO)
+    VALUES (@id, @nombre, @id_tipo);
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Cuerpo_Editar]
+    @id int,
+    @nombre varchar(50),
+    @id_tipo int
+AS
+BEGIN
+    UPDATE dbo.CUERPO_CELESTE
+    SET NOMBRE = @nombre,
+        ID_TIPO = @id_tipo
+    WHERE ID_CUERPO = @id;
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Cuerpo_Baja]
+    @id int
+AS
+BEGIN
+    DELETE FROM dbo.SATELITE
+    WHERE ID_PLANETA = @id OR ID_SATELITE = @id;
+
+    DELETE FROM dbo.CUERPO_CELESTE
+    WHERE ID_CUERPO = @id;
+END
+GO
+
+-- =============================================
+-- DATOS DE PRUEBA
+-- =============================================
+
+EXEC dbo.Cuerpo_Insertar @nombre = 'Sol', @id_tipo = 1;
+EXEC dbo.Cuerpo_Insertar @nombre = 'Tierra', @id_tipo = 3;
+EXEC dbo.Cuerpo_Insertar @nombre = 'Luna', @id_tipo = 2;
+GO
+
+-- =============================================
+-- PROCEDIMIENTOS ALMACENADOS (Alta de Satélite)
+-- =============================================
+
+CREATE OR ALTER PROCEDURE [dbo].[Satelite_Listar]
+AS
+BEGIN
+    SELECT s.ID_PLANETA, p.NOMBRE AS NOMBRE_PLANETA, p.ID_TIPO AS ID_TIPO_PLANETA,
+           s.ID_SATELITE, sat.NOMBRE AS NOMBRE_SATELITE, sat.ID_TIPO AS ID_TIPO_SATELITE
+    FROM dbo.SATELITE s
+    INNER JOIN dbo.CUERPO_CELESTE p ON s.ID_PLANETA = p.ID_CUERPO
+    INNER JOIN dbo.CUERPO_CELESTE sat ON s.ID_SATELITE = sat.ID_CUERPO
+    ORDER BY s.ID_PLANETA, s.ID_SATELITE;
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[Satelite_Insertar]
+    @id_planeta int,
+    @id_satelite int
+AS
+BEGIN
+    INSERT INTO dbo.SATELITE (ID_PLANETA, ID_SATELITE)
+    VALUES (@id_planeta, @id_satelite);
+END
+GO
